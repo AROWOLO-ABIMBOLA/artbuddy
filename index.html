@@ -4559,18 +4559,36 @@ if (!settings.levelMode) settings.levelMode = "age";
 
 </script>
 <script>
-/* live website extras: offline play, keep progress safe, and an install button where the browser offers one */
+/* live website extras: offline play, keep progress safe, and an always-visible "Get the app" button */
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 let installEvt = null;
-window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault(); installEvt = e;
-  if (document.getElementById("installBtn")) return;
-  const b = document.createElement("button"); b.className = "btn dressbtn"; b.id = "installBtn"; b.textContent = "📲 Install app"; b.style.marginLeft = "6px"; b.setAttribute("aria-label", "Install Art Buddy as an app");
-  b.onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; b.remove(); };
-  const d = document.getElementById("dressBtn"); if (d) d.after(b);
-});
-window.addEventListener("appinstalled", () => { const b = document.getElementById("installBtn"); if (b) b.remove(); });
+const isApp = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+function installHelp() {
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1), android = /Android/.test(ua), edge = /Edg[/]/.test(ua);
+  const how = ios ? "On the iPhone or iPad, open this page in <b>Safari</b>. Tap the <b>Share</b> button (the square with an arrow), then tap <b>Add to Home Screen</b>, then <b>Add</b>."
+    : android ? "Tap the <b>&#8942; menu</b> at the top of Chrome, then tap <b>Install app</b> (or <b>Add to Home screen</b>)."
+    : edge ? "Click the <b>install icon</b> at the right end of the address bar, or open the <b>&#8943; menu</b>, then <b>Apps</b>, then <b>Install this site as an app</b>."
+    : "Click the <b>install icon</b> at the right end of the address bar, or open the browser menu and choose <b>Install</b> or <b>Add to Home screen</b>.";
+  const old = document.getElementById("installHelp"); if (old) old.remove();
+  const d = document.createElement("div"); d.id = "installHelp"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Get the Art Buddy app");
+  d.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(35,32,74,.55);display:grid;place-items:center;padding:16px;font-family:inherit";
+  d.innerHTML = '<div style="background:#fff;color:#23204A;border:4px solid #23204A;border-radius:22px;padding:18px 18px 14px;max-width:420px;width:100%;box-shadow:0 8px 0 #23204A;font-weight:700;font-size:16px;line-height:1.35"><div style="font-size:22px;font-weight:800;margin-bottom:6px">&#128242; Get the Art Buddy app</div><p style="margin:6px 0">' + how + '</p><p id="ihOff" style="margin:8px 0;font-size:14px"></p><button id="ihOk" style="all:unset;cursor:pointer;display:block;text-align:center;background:#E8457E;color:#fff;border:3px solid #23204A;border-radius:16px;padding:8px 14px;font-weight:800;margin-top:8px">OK</button></div>';
+  document.body.appendChild(d); d.onclick = (e) => { if (e.target === d || e.target.id === "ihOk") d.remove(); };
+  const off = d.querySelector("#ihOff");
+  const done = (ok) => { off.innerHTML = ok ? "&#9989; This device already keeps a copy, so Art Buddy works <b>without internet</b>." : "To work without internet, keep this page open with internet for a few seconds, then open it once more."; };
+  if ("serviceWorker" in navigator && window.caches) navigator.serviceWorker.getRegistration().then((r) => caches.has("art-buddy-v1").then((h) => done(!!(r && h)))).catch(() => done(false)); else done(false);
+}
+function addInstallBtn() {
+  if (isApp() || document.getElementById("installBtn")) return;
+  const d = document.getElementById("dressBtn"); if (!d) return;
+  const b = document.createElement("button"); b.className = "btn dressbtn"; b.id = "installBtn"; b.textContent = "📲 Get the app"; b.style.marginLeft = "6px"; b.setAttribute("aria-label", "Install Art Buddy as an app so it works offline");
+  b.onclick = async () => { if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; } else installHelp(); };
+  d.after(b);
+}
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; addInstallBtn(); });
+window.addEventListener("appinstalled", () => { const b = document.getElementById("installBtn"); if (b) b.remove(); const h = document.getElementById("installHelp"); if (h) h.remove(); });
+addInstallBtn();
 </script>
 </body>
 </html>
